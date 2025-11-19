@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Storage</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        overflow: hidden;
+        user-select: none;
+      }
+      .font-mono {
+        font-family: 'JetBrains Mono', monospace;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+      /* Tree View Styles */
+      .tree-line {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        border-left: 1px solid #e5e7eb;
+      }
+      .tooltip {
+        position: fixed;
+        background: #2D2D30;
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 100;
+        pointer-events: none;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid #4b5563;
+        max-width: 300px;
+        display: none;
+      }
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-white text-gray-900 h-screen flex flex-col">
+    
+    <!-- Toolbar -->
+    <div id="toolbar-container" class="h-12 bg-gray-100 border-b border-gray-200 flex items-center px-4 flex-shrink-0 overflow-x-auto gap-2"></div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex overflow-hidden">
+      
+      <!-- Explorer Sidebar -->
+      <div class="w-72 bg-gray-50 border-r border-gray-200 flex flex-col flex-shrink-0">
+        <div class="px-4 py-2 bg-[#007ACC] text-white flex items-center justify-between flex-shrink-0">
+          <span class="font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+             Explorer
+          </span>
+        </div>
+        <div id="explorer-container" class="flex-1 overflow-y-auto py-2 relative">
+           <!-- Tree content rendered here -->
+        </div>
+      </div>
+
+      <!-- Editor Area -->
+      <div class="flex-1 flex flex-col bg-white overflow-hidden relative">
+         <!-- Tabs -->
+         <div id="tabs-container" class="flex bg-[#f3f3f3] border-b border-gray-200 h-9 overflow-x-auto flex-shrink-0"></div>
+         
+         <!-- Editor -->
+         <div id="editor-container" class="flex-1 relative">
+            <textarea id="code-editor" class="w-full h-full resize-none p-4 font-mono text-sm outline-none text-gray-800 leading-relaxed hidden" spellcheck="false"></textarea>
+            <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+               <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4 opacity-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
+               <p>Выберите файл для просмотра</p>
+            </div>
+         </div>
+
+         <!-- Status Bar -->
+         <div class="bg-[#007ACC] text-white text-xs px-4 py-1 flex justify-between flex-shrink-0">
+            <span id="status-msg">Готово</span>
+            <span id="cursor-pos">Ln 1, Col 1</span>
+         </div>
+      </div>
+
+    </div>
+
+    <!-- Tooltip Element -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center">
+       <div class="bg-white rounded shadow-lg w-96 overflow-hidden">
+          <div class="bg-[#007ACC] text-white px-4 py-2 flex justify-between items-center">
+             <h3 id="modal-title" class="font-semibold text-sm">Input</h3>
+             <button id="modal-close" class="hover:text-gray-200">&times;</button>
+          </div>
+          <div class="p-4">
+             <label class="block text-sm font-medium text-gray-700 mb-1">Значение</label>
+             <input id="modal-input" type="text" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-[#007ACC] focus:border-transparent outline-none" />
+             <div class="mt-4 flex justify-end gap-2">
+                <button id="modal-cancel" class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded">Отмена</button>
+                <button id="modal-confirm" class="px-3 py-1.5 text-sm bg-[#007ACC] text-white rounded hover:bg-[#0063a5]">ОК</button>
+             </div>
+          </div>
+       </div>
+    </div>
+
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

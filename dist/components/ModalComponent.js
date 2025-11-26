@@ -46,6 +46,38 @@ export class ModalComponent {
             input.select();
         });
     }
+    confirm(title) {
+        return new Promise(resolve => {
+            this.container.innerHTML = `
+        <div class="modal">
+          <div class="modal-header">
+            <h3>${this.escapeHtml(title)}</h3>
+          </div>
+          <div class="modal-body">
+            <p></p>
+          </div>
+          <div class="modal-footer">
+            <button id="modal-cancel" class="btn btn-secondary">Отмена</button>
+            <button id="modal-ok" class="btn btn-danger">Удалить</button>
+          </div>
+        </div>
+      `;
+            this.backdrop.classList.remove('hidden');
+            this.container.classList.remove('hidden');
+            const btnOk = document.getElementById('modal-ok');
+            const btnCancel = document.getElementById('modal-cancel');
+            const handleOk = () => {
+                this.close();
+                resolve(true);
+            };
+            const handleCancel = () => {
+                this.close();
+                resolve(false);
+            };
+            btnOk.addEventListener('click', handleOk, { once: true });
+            btnCancel.addEventListener('click', handleCancel, { once: true });
+        });
+    }
     close() {
         this.backdrop.classList.add('hidden');
         this.container.classList.add('hidden');

@@ -4,6 +4,8 @@ export class TreeComponent {
   private onFileClick: (id: string) => void
   private onContextMenu: (id: string, isFolder: boolean, x: number, y: number) => void
   private onHover: (id: string, isFile: boolean, rect: DOMRect) => void
+  private expandedFolders: Set<string> = new Set()
+  private selectedItemId: string | null = null
 
   constructor(container: HTMLElement, callbacks: {
     onFolderClick: (id: string) => void
@@ -23,7 +25,7 @@ export class TreeComponent {
   private setupEventListeners() {
     this.container.addEventListener('click', (e: Event) => this.handleClick(e as MouseEvent))
     this.container.addEventListener('contextmenu', (e: Event) => this.handleContextMenu(e as MouseEvent))
-    // Removed mouseover hover handler to avoid tooltip overlaying content
+    this.container.addEventListener('mouseover', (e: Event) => this.handleHover(e as MouseEvent))
   }
 
   private handleClick(e: MouseEvent) {
@@ -36,13 +38,15 @@ export class TreeComponent {
     if (isFolder) {
       const toggle = item.querySelector('.tree-toggle') as HTMLElement
       if ((e.target as HTMLElement).closest('.tree-toggle')) {
-        console.log('toggle expand for folder:', id)
-        this.toggleExpand(item)
+        this.toggleExpand(item, id)
       } else {
-        console.log('folder click:', id)
+        this.selectedItemId = id
+        this.updateSelection()
         this.onFolderClick(id)
       }
     } else {
+      this.selectedItemId = id
+      this.updateSelection()
       this.onFileClick(id)
     }
   }
@@ -72,7 +76,7 @@ export class TreeComponent {
     }
   }
 
-  private toggleExpand(item: HTMLElement) {
+  private toggleExpand(item: HTMLElement, id: string) {
     const toggle = item.querySelector('.tree-toggle') as HTMLElement
     const children = item.nextElementSibling as HTMLElement | null
 
@@ -80,9 +84,23 @@ export class TreeComponent {
       if (children.style.display === 'none') {
         children.style.display = 'block'
         toggle.textContent = '↓'
+        this.expandedFolders.add(id)
       } else {
         children.style.display = 'none'
         toggle.textContent = '→'
+        this.expandedFolders.delete(id)
+      }
+    }
+  }
+
+  private updateSelection() {
+    this.container.querySelectorAll('.tree-item').forEach(el => {
+      el.classList.remove('tree-active')
+    })
+    if (this.selectedItemId) {
+      const selected = this.container.querySelector(`[data-tree-item="${this.selectedItemId}"]`) as HTMLElement
+      if (selected) {
+        selected.classList.add('tree-active')
       }
     }
   }
@@ -95,7 +113,7 @@ export class TreeComponent {
       parts.push(`
         <div class="tree-item tree-folder" data-tree-item="${f.id}">
           <button class="tree-toggle">→</button>
-          <span class="tree-type-icon">DIR</span>
+          <span class="tree-type-icon folder-icon">DIR</span>
           <span class="tree-name">${this.escapeHtml(f.name)}</span>
         </div>
       `)
@@ -111,7 +129,7 @@ export class TreeComponent {
     for (const file of folder.files) {
       parts.push(`
         <div class="tree-item tree-file" data-tree-item="${file.id}">
-          <span class="tree-type-icon">FILE</span>
+          <span class="tree-type-icon file-icon">FILE</span>
           <span class="tree-name">${this.escapeHtml(file.name)}</span>
         </div>
       `)
@@ -128,5 +146,53 @@ export class TreeComponent {
 
   update(folder: any) {
     this.container.innerHTML = this.render(folder)
+    this.restoreExpandedState()
+    this.updateSelection()
+  }
+
+  private restoreExpandedState() {
+    this.expandedFolders.forEach(id => {
+      const item = this.container.querySelector(`[data-tree-item="${id}"]`) as HTMLElement
+      if (item) {
+        const toggle = item.querySelector('.tree-toggle') as HTMLElement
+        const children = item.nextElementSibling as HTMLElement | null
+        if (children?.classList.contains('tree-children')) {
+          children.style.display = 'block'
+          toggle.textContent = '↓'
+        }
+      }
+    })
+  }
+
+  setSelectedItemId(id: string | null) {
+    this.selectedItemId = id
+    this.updateSelection()
+  }
+
+  expandToItem(itemId: string, store: any) {
+    // Expand folders along the path to the given item
+    const pathToRoot: string[] = []
+    let folderId = itemId
+    const fileRes = store.findFileById(itemId)
+    if (fileRes) folderId = fileRes.parent.id
+
+    let current = store.findFolderById(folderId)
+    while (current) {
+      pathToRoot.unshift(current.id)
+      current = store.findParentFolder(current.id)
+    }
+
+    pathToRoot.forEach(id => {
+      this.expandedFolders.add(id)
+      const item = this.container.querySelector(`[data-tree-item="${id}"]`) as HTMLElement
+      if (item) {
+        const toggle = item.querySelector('.tree-toggle') as HTMLElement
+        const children = item.nextElementSibling as HTMLElement | null
+        if (children?.classList.contains('tree-children')) {
+          children.style.display = 'block'
+          toggle.textContent = '↓'
+        }
+      }
+    })
   }
 }

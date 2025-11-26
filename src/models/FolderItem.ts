@@ -17,4 +17,9 @@ export class FolderItem implements IFolderItem {
     this.files = []
     this.loaded = false
   }
+
+  // For persistence: allow setting the next id counter
+  static setCounter(next: number) {
+    folderIdCounter = next
+  }
 }

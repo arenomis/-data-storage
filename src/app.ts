@@ -10,6 +10,7 @@ import { TooltipComponent } from './components/TooltipComponent.js'
 import { ModalComponent } from './components/ModalComponent.js'
 import { debounce } from './utils/helpers.js'
 
+// Основной модуль: инициализация интерфейса и управление состоянием хранилища
 class FileStorageApp {
   private store = dataStore
   private selectedFolderId: string = this.store.root.id
@@ -17,7 +18,6 @@ class FileStorageApp {
   private currentContextId: string | null = null
   private currentContextIsFolder: boolean = false
 
-  // Components
   private tree!: TreeComponent
   private topBar!: TopBarComponent
   private preview!: PreviewComponent
@@ -33,7 +33,6 @@ class FileStorageApp {
   }
 
   private initializeComponents() {
-    // Get container elements
     const treeContainer = document.getElementById('tree-container')!
     const topBarContainer = document.getElementById('topbar-container')!
     const previewContainer = document.getElementById('preview-container')!
@@ -42,7 +41,6 @@ class FileStorageApp {
     const tooltipContainer = document.getElementById('tooltip')!
     const pathBarContainer = document.getElementById('pathbar')!
 
-    // Initialize components
     this.tree = new TreeComponent(treeContainer, {
       onFolderClick: (id) => this.selectFolder(id),
       onFileClick: (id) => this.selectFile(id),
@@ -56,8 +54,10 @@ class FileStorageApp {
     })
 
     this.preview = new PreviewComponent(previewContainer, {
-      onRename: (name) => this.renameCurrentFile(name),
-      onDelete: () => this.deleteCurrentFile()
+      onRenameRequest: () => this.handlePreviewRenameRequest(),
+      onDeleteRequest: () => this.handlePreviewDeleteRequest(),
+      onOpenFile: (id: string) => this.selectFile(id),
+      onOpenFolder: (id: string) => this.selectFolder(id)
     })
 
     this.search = new SearchComponent(searchContainer, {
@@ -73,7 +73,6 @@ class FileStorageApp {
 
     this.tooltip = new TooltipComponent(tooltipContainer)
 
-    // Setup search
     const searchInput = this.topBar.getSearchInput()
     searchInput.addEventListener('input', debounce((e: Event) => {
       const query = (e.target as HTMLInputElement).value
@@ -81,7 +80,6 @@ class FileStorageApp {
       this.search.update(results)
     }, 300))
 
-    // Setup modal
     const modalContainer = document.createElement('div')
     modalContainer.id = 'modal-container'
     modalContainer.className = 'modal-container hidden'
@@ -102,7 +100,6 @@ class FileStorageApp {
     const root = this.store.root
     this.tree.update(root)
     this.updatePathBar()
-    // Явно обновлять предпросмотр
     if (this.selectedFileId) {
       const res = this.store.findFileById(this.selectedFileId)
       if (res) {
@@ -124,7 +121,6 @@ class FileStorageApp {
     const pathBar = document.getElementById('pathbar')!
     let path = ''
     if (this.selectedFileId) {
-      // Если выбран файл, показываем путь к файлу
       const res = this.store.findFileById(this.selectedFileId)
       if (res) {
         path = this.store.getPath(res.parent.id) + '/' + res.file.name
@@ -136,7 +132,6 @@ class FileStorageApp {
     }
     pathBar.textContent = path
 
-    // Make pathbar clickable to go up one level if not at root
     if (this.selectedFolderId !== this.store.root.id) {
       pathBar.style.cursor = 'pointer'
       pathBar.title = 'Клик для перемещения на уровень выше'
@@ -149,23 +144,27 @@ class FileStorageApp {
   }
 
   private goToParentFolder() {
+    if (this.selectedFileId) {
+      this.selectFolder(this.selectedFolderId)
+      return
+    }
+    
     const parentFolder = this.store.findParentFolder(this.selectedFolderId)
     if (parentFolder) {
       this.selectFolder(parentFolder.id)
     } else if (this.selectedFolderId !== this.store.root.id) {
-      // If no parent found, go to root
       this.selectFolder(this.store.root.id)
     }
   }
 
   private selectFolder(id: string) {
-    console.log('selectFolder called with id:', id)
     this.selectedFolderId = id
     this.selectedFileId = null
+    this.tree.setSelectedItemId(id)
+    this.tree.expandToItem(id, this.store)
     this.updatePathBar()
 
     const folder = this.store.findFolderById(id)
-    console.log('found folder:', folder?.name, 'with files:', folder?.files.length, 'folders:', folder?.folders.length)
     if (folder) {
       this.preview.showFolderContents(folder)
     }
@@ -176,6 +175,8 @@ class FileStorageApp {
     const res = this.store.findFileById(id)
     if (res) {
       this.selectedFolderId = res.parent.id
+      this.tree.setSelectedItemId(id)
+      this.tree.expandToItem(id, this.store)
       this.updatePathBar()
       this.preview.showFilePreview(res.file)
     }
@@ -252,19 +253,58 @@ class FileStorageApp {
   private deleteContext() {
     if (!this.currentContextId) return
 
-    if (!confirm('Удалить? Это действие необратимо.')) return
-
+    let itemName = 'неизвестный объект'
     if (this.currentContextIsFolder) {
-      this.store.deleteFolder(this.currentContextId)
-      this.selectedFileId = null
-      this.preview.showEmpty()
+      const folder = this.store.findFolderById(this.currentContextId)
+      if (folder) itemName = `папку "${folder.name}"`
     } else {
-      this.store.deleteFile(this.currentContextId)
-      if (this.selectedFileId === this.currentContextId) {
+      const res = this.store.findFileById(this.currentContextId)
+      if (res) itemName = `файл "${res.file.name}"`
+    }
+
+    this.modal.confirm(`Удалить ${itemName}? Это действие необратимо.`).then(ok => {
+      if (!ok) return
+
+      if (this.currentContextIsFolder) {
+        this.store.deleteFolder(this.currentContextId!)
         this.selectedFileId = null
         this.preview.showEmpty()
+      } else {
+        this.store.deleteFile(this.currentContextId!)
+        if (this.selectedFileId === this.currentContextId) {
+          this.selectedFileId = null
+          this.preview.showEmpty()
+        }
       }
-    }
+    })
+  }
+
+  private handlePreviewRenameRequest() {
+    if (!this.selectedFileId) return
+    const res = this.store.findFileById(this.selectedFileId)
+    if (!res) return
+
+    this.modal.prompt('Новое имя файла:', res.file.name).then(name => {
+      if (name && name.trim()) {
+        this.store.renameFile(this.selectedFileId!, name.trim())
+        const updated = this.store.findFileById(this.selectedFileId!)
+        if (updated) this.preview.showFilePreview(updated.file)
+      }
+    })
+  }
+
+  private handlePreviewDeleteRequest() {
+    if (!this.selectedFileId) return
+    const res = this.store.findFileById(this.selectedFileId)
+    if (!res) return
+    const fileName = res.file.name
+
+    this.modal.confirm(`Удалить файл "${fileName}"? Это действие необратимо.`).then(ok => {
+      if (!ok) return
+      this.store.deleteFile(this.selectedFileId!)
+      this.selectedFileId = null
+      this.preview.showEmpty()
+    })
   }
 
   private renameCurrentFile(name: string) {
@@ -319,7 +359,6 @@ class FileStorageApp {
   }
 }
 
-// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   new FileStorageApp()
 })

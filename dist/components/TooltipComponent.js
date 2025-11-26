@@ -2,14 +2,9 @@ export class TooltipComponent {
     constructor(container) {
         this.hideTimer = null;
         this.container = container;
-        // Hide tooltip on click anywhere
-        document.addEventListener('click', () => {
-            this.hide();
-        });
-        // Hide tooltip when mouse leaves it
-        this.container.addEventListener('mouseleave', () => {
-            this.scheduleHide();
-        });
+        // Скрывать тултип при клике вне
+        document.addEventListener('click', () => this.hide());
+        this.container.addEventListener('mouseleave', () => this.scheduleHide());
         this.container.addEventListener('mouseenter', () => {
             if (this.hideTimer) {
                 clearTimeout(this.hideTimer);
@@ -18,15 +13,26 @@ export class TooltipComponent {
         });
     }
     show(text, x, y) {
-        // Clear any pending hide
         if (this.hideTimer) {
             clearTimeout(this.hideTimer);
             this.hideTimer = null;
         }
         this.container.textContent = text;
-        this.container.style.left = x + 'px';
-        this.container.style.top = y + 'px';
         this.container.classList.remove('hidden');
+        // Ensure tooltip is rendered before measuring
+        requestAnimationFrame(() => {
+            const rect = this.container.getBoundingClientRect();
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            let posX = x;
+            let posY = y;
+            if (posX + rect.width > windowWidth - 10)
+                posX = windowWidth - rect.width - 10;
+            if (posY + rect.height > windowHeight - 10)
+                posY = Math.max(10, posY - rect.height - 10);
+            this.container.style.left = posX + 'px';
+            this.container.style.top = posY + 'px';
+        });
     }
     scheduleHide() {
         if (this.hideTimer) {

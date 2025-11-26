@@ -1,17 +1,24 @@
 import { FileItem } from '../models/FileItem.js'
 
+// Компонент предпросмотра: поддерживает image/audio/video/pdf/text
 export class PreviewComponent {
   private container: HTMLElement
-  private onRename: (name: string) => void
+  private onRename: () => void
   private onDelete: () => void
+  private onOpenFile: (id: string) => void
+  private onOpenFolder: (id: string) => void
 
   constructor(container: HTMLElement, callbacks: {
-    onRename: (name: string) => void
-    onDelete: () => void
+    onRenameRequest?: () => void
+    onDeleteRequest?: () => void
+    onOpenFile?: (id: string) => void
+    onOpenFolder?: (id: string) => void
   }) {
     this.container = container
-    this.onRename = callbacks.onRename
-    this.onDelete = callbacks.onDelete
+    this.onRename = (callbacks as any).onRenameRequest ?? (() => {})
+    this.onDelete = (callbacks as any).onDeleteRequest ?? (() => {})
+    this.onOpenFile = (callbacks as any).onOpenFile ?? (() => {})
+    this.onOpenFolder = (callbacks as any).onOpenFolder ?? (() => {})
   }
 
   showEmpty() {
@@ -24,13 +31,12 @@ export class PreviewComponent {
 
   showFolderContents(folder: any) {
     const items: string[] = []
-
     for (const f of folder.folders) {
-      items.push(`<div class="preview-item"><span class="item-type">DIR</span> ${this.escapeHtml(f.name)}</div>`)
+      items.push(`<div class="preview-item preview-folder" data-id="${f.id}">${this.escapeHtml(f.name)}</div>`)
     }
 
     for (const file of folder.files) {
-      items.push(`<div class="preview-item"><span class="item-type">FILE</span> ${this.escapeHtml(file.name)}</div>`)
+      items.push(`<div class="preview-item preview-file" data-id="${file.id}">${this.escapeHtml(file.name)}</div>`)
     }
 
     this.container.innerHTML = `
@@ -41,96 +47,73 @@ export class PreviewComponent {
         ${items.join('')}
       </div>
     `
+
+    this.container.querySelectorAll('.preview-item.preview-file').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const id = (e.currentTarget as HTMLElement).dataset.id!
+        if (this.onOpenFile) this.onOpenFile(id)
+      })
+    })
+    this.container.querySelectorAll('.preview-item.preview-folder').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const id = (e.currentTarget as HTMLElement).dataset.id!
+        if (this.onOpenFolder) this.onOpenFolder(id)
+      })
+    })
   }
 
   showFilePreview(file: FileItem) {
-    // Очищаем контейнер
-    this.container.innerHTML = '';
+    this.container.innerHTML = ''
 
-    // Проверяем тип файла
+    const header = `
+      <div class="preview-header">
+        <h3>${this.escapeHtml(file.name)}</h3>
+        <p class="preview-info">${file.type} • ${this.formatSize(file.size)}</p>
+      </div>
+    `
+
+    const controls = `
+      <div class="preview-controls">
+        <button id="btn-download" class="btn btn-secondary">Скачать</button>
+        <button id="btn-rename" class="btn btn-secondary">Переименовать</button>
+        <button id="btn-delete" class="btn btn-secondary btn-danger">Удалить</button>
+      </div>
+    `
+
+    let contentHtml = ''
+    const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf')
+
     if (file.type.startsWith('image/')) {
-      this.container.innerHTML = `
-        <div class="preview-header">
-          <h3>${this.escapeHtml(file.name)}</h3>
-          <p class="preview-info">${file.type} • ${this.formatSize(file.size)}</p>
-        </div>
-        <div class="preview-content">
-          <img src="${file.content}" alt="Предпросмотр" class="preview-image" />
-        </div>
-        <div class="preview-controls">
-          <button id="btn-download" class="btn btn-secondary">⬇ СКАЧАТЬ</button>
-          <button id="btn-rename" class="btn btn-secondary">✏ ПЕРЕИМЕНОВАТЬ</button>
-          <button id="btn-delete" class="btn btn-secondary btn-danger">✕ УДАЛИТЬ</button>
-        </div>
-      `;
-    } else if (
-      file.type.startsWith('text/') ||
-      file.name.match(/\.(txt|css|ts|js|html|json|md)$/)
-    ) {
-      const content = typeof file.content === 'string' ? file.content : '[Бинарные данные]';
-      this.container.innerHTML = `
-        <div class="preview-header">
-          <h3>${this.escapeHtml(file.name)}</h3>
-          <p class="preview-info">${file.type} • ${this.formatSize(file.size)}</p>
-        </div>
-        <div class="preview-content">
-          <pre class="preview-code">${this.escapeHtml(content)}</pre>
-        </div>
-        <div class="preview-controls">
-          <button id="btn-download" class="btn btn-secondary">⬇ СКАЧАТЬ</button>
-          <button id="btn-rename" class="btn btn-secondary">✏ ПЕРЕИМЕНОВАТЬ</button>
-          <button id="btn-delete" class="btn btn-secondary btn-danger">✕ УДАЛИТЬ</button>
-        </div>
-      `;
+      contentHtml = `<div class="preview-content"><img src="${file.content}" alt="Предпросмотр" class="preview-image" /></div>`
+    } else if (file.type.startsWith('audio/')) {
+      contentHtml = `<div class="preview-content"><audio controls src="${file.content}"></audio></div>`
+    } else if (file.type.startsWith('video/')) {
+      contentHtml = `<div class="preview-content"><video controls src="${file.content}" class="preview-video"></video></div>`
+    } else if (isPdf) {
+      contentHtml = `<div class="preview-content"><iframe src="${file.content}" class="preview-pdf" frameborder="0"></iframe></div>`
+    } else if (file.type.startsWith('text/') || file.name.match(/\.(txt|css|ts|js|html|json|md)$/)) {
+      const content = typeof file.content === 'string' ? file.content : '[Бинарные данные]'
+      contentHtml = `<div class="preview-content"><pre class="preview-code">${this.escapeHtml(content)}</pre></div>`
     } else {
-      this.container.innerHTML = `
-        <div class="preview-header">
-          <h3>${this.escapeHtml(file.name)}</h3>
-          <p class="preview-info">${file.type} • ${this.formatSize(file.size)}</p>
-        </div>
-        <div class="preview-content">
-          <div class="preview-unsupported">Тип файла не поддерживается для предпросмотра</div>
-        </div>
-        <div class="preview-controls">
-          <button id="btn-download" class="btn btn-secondary">⬇ СКАЧАТЬ</button>
-          <button id="btn-rename" class="btn btn-secondary">✏ ПЕРЕИМЕНОВАТЬ</button>
-          <button id="btn-delete" class="btn btn-secondary btn-danger">✕ УДАЛИТЬ</button>
-        </div>
-      `;
+      contentHtml = `<div class="preview-content"><div class="preview-unsupported">Тип файла не поддерживается для предпросмотра</div></div>`
     }
-
-    // Добавляем обработчики кнопок
-    this.container.querySelector('#btn-download')?.addEventListener('click', () => {
-      this.downloadFile(file);
-    });
-    this.container.querySelector('#btn-rename')?.addEventListener('click', () => {
-      const name = prompt('Новое имя файла:', file.name);
-      if (name && name.trim()) {
-        this.onRename(name.trim());
-      }
-    });
-    this.container.querySelector('#btn-delete')?.addEventListener('click', () => {
-      if (confirm('Вы уверены, что хотите удалить этот файл?')) {
-        this.onDelete();
-      }
-    });
-
-    document.getElementById('btn-download')?.addEventListener('click', () => {
-      this.downloadFile(file)
-    })
-
-    document.getElementById('btn-rename')?.addEventListener('click', () => {
-      const name = prompt('Новое имя файла:', file.name)
-      if (name && name.trim()) {
-        this.onRename(name.trim())
-      }
-    })
-
-    document.getElementById('btn-delete')?.addEventListener('click', () => {
-      if (confirm('Вы уверены, что хотите удалить этот файл?')) {
-        this.onDelete()
-      }
-    })
+    if (isPdf) {
+      this.container.classList.add('pdf-mode')
+      this.container.innerHTML = contentHtml
+    } else {
+      this.container.classList.remove('pdf-mode')
+      this.container.innerHTML = header + contentHtml + controls
+      
+      this.container.querySelector('#btn-download')?.addEventListener('click', () => {
+        this.downloadFile(file);
+      });
+      this.container.querySelector('#btn-rename')?.addEventListener('click', () => {
+        if (this.onRename) this.onRename();
+      });
+      this.container.querySelector('#btn-delete')?.addEventListener('click', () => {
+        if (this.onDelete) this.onDelete();
+      });
+    }
   }
 
   private downloadFile(file: FileItem) {
@@ -138,7 +121,7 @@ export class PreviewComponent {
 
     const contentAny: any = (file as any).content
 
-    // If content is a string
+    
     if (typeof contentAny === 'string') {
       if (contentAny.startsWith('data:') || contentAny.startsWith('blob:')) {
         link.href = contentAny

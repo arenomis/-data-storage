@@ -26,4 +26,9 @@ export class FileItem implements IFileItem {
     this.description = opts.description ?? 'Нет описания'
     this.createdAt = Date.now()
   }
+
+  // For persistence: allow setting the next id counter
+  static setCounter(next: number) {
+    fileIdCounter = next
+  }
 }

@@ -164,9 +164,20 @@ body {
   background: #f0f4ff;
 }
 
-.tree-item.active {
+.tree-item.tree-active {
   background: #e8eeff;
   color: #667eea;
+  font-weight: 500;
+}
+
+.tree-type-icon.folder-icon {
+  background: #e8eeff;
+  color: #667eea;
+}
+
+.tree-type-icon.file-icon {
+  background: #f0e5ff;
+  color: #8b5cf6;
 }
 
 .tree-toggle {
@@ -220,7 +231,6 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Fix: pathbar should not inherit full .panel height and cover preview */
 .panel.pathbar {
   height: auto;
   flex: none;
@@ -306,6 +316,15 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: block;
   margin: 16px auto;
+}
+
+.preview-pdf {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  margin: 0;
+  padding: 0;
 }
 
 .preview-code {
@@ -396,6 +415,40 @@ body {
 .search-result-arrow {
   color: #bdc3c7;
   flex-shrink: 0;
+  display: none;
+}
+
+.topbar-search {
+  flex: 1;
+  max-width: 300px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.btn-clear-search {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #95a5a6;
+  padding: 4px 8px;
+  transition: color 0.2s;
+  display: none;
+}
+
+.btn-clear-search:hover {
+  color: #2c3e50;
+}
+
+.topbar-search .search-input:not(:placeholder-shown) ~ .btn-clear-search,
+.search-input-wrapper:has(.search-input:not(:placeholder-shown)) .btn-clear-search {
+  display: block;
 }
 
 .search-empty {
@@ -414,7 +467,7 @@ body {
   background: white;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 2000;
+  z-index: 10000;
   padding: 6px;
   min-width: 180px;
 }
@@ -450,7 +503,7 @@ body {
   z-index: 3000;
   max-width: 280px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  pointer-events: auto;
+  pointer-events: none;
   word-wrap: break-word;
 }
 

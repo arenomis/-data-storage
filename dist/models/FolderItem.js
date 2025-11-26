@@ -8,4 +8,8 @@ export class FolderItem {
         this.files = [];
         this.loaded = false;
     }
+    // For persistence: allow setting the next id counter
+    static setCounter(next) {
+        folderIdCounter = next;
+    }
 }

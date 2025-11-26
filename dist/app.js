@@ -8,6 +8,7 @@ import { ContextMenuComponent } from './components/ContextMenuComponent.js';
 import { TooltipComponent } from './components/TooltipComponent.js';
 import { ModalComponent } from './components/ModalComponent.js';
 import { debounce } from './utils/helpers.js';
+// Основной модуль: инициализация интерфейса и управление состоянием хранилища
 class FileStorageApp {
     constructor() {
         this.store = dataStore;
@@ -20,7 +21,6 @@ class FileStorageApp {
         this.render();
     }
     initializeComponents() {
-        // Get container elements
         const treeContainer = document.getElementById('tree-container');
         const topBarContainer = document.getElementById('topbar-container');
         const previewContainer = document.getElementById('preview-container');
@@ -28,7 +28,6 @@ class FileStorageApp {
         const contextMenuContainer = document.getElementById('context-menu');
         const tooltipContainer = document.getElementById('tooltip');
         const pathBarContainer = document.getElementById('pathbar');
-        // Initialize components
         this.tree = new TreeComponent(treeContainer, {
             onFolderClick: (id) => this.selectFolder(id),
             onFileClick: (id) => this.selectFile(id),
@@ -40,8 +39,10 @@ class FileStorageApp {
             onUploadFiles: (files) => this.handleFileUpload(files)
         });
         this.preview = new PreviewComponent(previewContainer, {
-            onRename: (name) => this.renameCurrentFile(name),
-            onDelete: () => this.deleteCurrentFile()
+            onRenameRequest: () => this.handlePreviewRenameRequest(),
+            onDeleteRequest: () => this.handlePreviewDeleteRequest(),
+            onOpenFile: (id) => this.selectFile(id),
+            onOpenFolder: (id) => this.selectFolder(id)
         });
         this.search = new SearchComponent(searchContainer, {
             onItemClick: (type, id) => this.selectFromSearch(type, id),
@@ -53,14 +54,12 @@ class FileStorageApp {
             onDelete: () => this.deleteContext()
         });
         this.tooltip = new TooltipComponent(tooltipContainer);
-        // Setup search
         const searchInput = this.topBar.getSearchInput();
         searchInput.addEventListener('input', debounce((e) => {
             const query = e.target.value;
             const results = this.store.search(query);
             this.search.update(results);
         }, 300));
-        // Setup modal
         const modalContainer = document.createElement('div');
         modalContainer.id = 'modal-container';
         modalContainer.className = 'modal-container hidden';
@@ -77,7 +76,6 @@ class FileStorageApp {
         const root = this.store.root;
         this.tree.update(root);
         this.updatePathBar();
-        // Явно обновлять предпросмотр
         if (this.selectedFileId) {
             const res = this.store.findFileById(this.selectedFileId);
             if (res) {
@@ -101,7 +99,6 @@ class FileStorageApp {
         const pathBar = document.getElementById('pathbar');
         let path = '';
         if (this.selectedFileId) {
-            // Если выбран файл, показываем путь к файлу
             const res = this.store.findFileById(this.selectedFileId);
             if (res) {
                 path = this.store.getPath(res.parent.id) + '/' + res.file.name;
@@ -114,7 +111,6 @@ class FileStorageApp {
             path = this.store.getPath(this.selectedFolderId);
         }
         pathBar.textContent = path;
-        // Make pathbar clickable to go up one level if not at root
         if (this.selectedFolderId !== this.store.root.id) {
             pathBar.style.cursor = 'pointer';
             pathBar.title = 'Клик для перемещения на уровень выше';
@@ -127,22 +123,25 @@ class FileStorageApp {
         }
     }
     goToParentFolder() {
+        if (this.selectedFileId) {
+            this.selectFolder(this.selectedFolderId);
+            return;
+        }
         const parentFolder = this.store.findParentFolder(this.selectedFolderId);
         if (parentFolder) {
             this.selectFolder(parentFolder.id);
         }
         else if (this.selectedFolderId !== this.store.root.id) {
-            // If no parent found, go to root
             this.selectFolder(this.store.root.id);
         }
     }
     selectFolder(id) {
-        console.log('selectFolder called with id:', id);
         this.selectedFolderId = id;
         this.selectedFileId = null;
+        this.tree.setSelectedItemId(id);
+        this.tree.expandToItem(id, this.store);
         this.updatePathBar();
         const folder = this.store.findFolderById(id);
-        console.log('found folder:', folder === null || folder === void 0 ? void 0 : folder.name, 'with files:', folder === null || folder === void 0 ? void 0 : folder.files.length, 'folders:', folder === null || folder === void 0 ? void 0 : folder.folders.length);
         if (folder) {
             this.preview.showFolderContents(folder);
         }
@@ -152,6 +151,8 @@ class FileStorageApp {
         const res = this.store.findFileById(id);
         if (res) {
             this.selectedFolderId = res.parent.id;
+            this.tree.setSelectedItemId(id);
+            this.tree.expandToItem(id, this.store);
             this.updatePathBar();
             this.preview.showFilePreview(res.file);
         }
@@ -222,20 +223,63 @@ class FileStorageApp {
     deleteContext() {
         if (!this.currentContextId)
             return;
-        if (!confirm('Удалить? Это действие необратимо.'))
-            return;
+        let itemName = 'неизвестный объект';
         if (this.currentContextIsFolder) {
-            this.store.deleteFolder(this.currentContextId);
-            this.selectedFileId = null;
-            this.preview.showEmpty();
+            const folder = this.store.findFolderById(this.currentContextId);
+            if (folder)
+                itemName = `папку "${folder.name}"`;
         }
         else {
-            this.store.deleteFile(this.currentContextId);
-            if (this.selectedFileId === this.currentContextId) {
+            const res = this.store.findFileById(this.currentContextId);
+            if (res)
+                itemName = `файл "${res.file.name}"`;
+        }
+        this.modal.confirm(`Удалить ${itemName}? Это действие необратимо.`).then(ok => {
+            if (!ok)
+                return;
+            if (this.currentContextIsFolder) {
+                this.store.deleteFolder(this.currentContextId);
                 this.selectedFileId = null;
                 this.preview.showEmpty();
             }
-        }
+            else {
+                this.store.deleteFile(this.currentContextId);
+                if (this.selectedFileId === this.currentContextId) {
+                    this.selectedFileId = null;
+                    this.preview.showEmpty();
+                }
+            }
+        });
+    }
+    handlePreviewRenameRequest() {
+        if (!this.selectedFileId)
+            return;
+        const res = this.store.findFileById(this.selectedFileId);
+        if (!res)
+            return;
+        this.modal.prompt('Новое имя файла:', res.file.name).then(name => {
+            if (name && name.trim()) {
+                this.store.renameFile(this.selectedFileId, name.trim());
+                const updated = this.store.findFileById(this.selectedFileId);
+                if (updated)
+                    this.preview.showFilePreview(updated.file);
+            }
+        });
+    }
+    handlePreviewDeleteRequest() {
+        if (!this.selectedFileId)
+            return;
+        const res = this.store.findFileById(this.selectedFileId);
+        if (!res)
+            return;
+        const fileName = res.file.name;
+        this.modal.confirm(`Удалить файл "${fileName}"? Это действие необратимо.`).then(ok => {
+            if (!ok)
+                return;
+            this.store.deleteFile(this.selectedFileId);
+            this.selectedFileId = null;
+            this.preview.showEmpty();
+        });
     }
     renameCurrentFile(name) {
         if (this.selectedFileId) {
@@ -285,7 +329,6 @@ class FileStorageApp {
         });
     }
 }
-// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     new FileStorageApp();
 });

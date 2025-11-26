@@ -1,11 +1,11 @@
 {
-  "name": "data-storage-spa",
+  "name": "data-storage",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w",
-    "serve": "live-server --port=5173",
+    "serve": "live-server --port=4200",
     "start": "npm run build && npm run serve"
   },
   "devDependencies": {

@@ -40,7 +40,6 @@ export class SearchComponent {
               <div class="search-result-path">${this.escapeHtml(r.path)}</div>
             </div>
           </div>
-          <span class="search-result-arrow">></span>
         </div>
       `)
             .join('');

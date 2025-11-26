@@ -1,6 +1,4 @@
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY`
-3. Run the app:
-   `npm run dev`
+1. Соберите проект и запустите локальный сервер:
+```
+npm run build
+npm run serve

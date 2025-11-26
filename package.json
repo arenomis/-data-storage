@@ -1,20 +1,15 @@
 {
-  "name": "data-storage",
+  "name": "data-storage-spa",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-
+    "build": "tsc",
+    "dev": "tsc -w",
+    "serve": "live-server --port=5173",
+    "start": "npm run build && npm run serve"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "live-server": "^1.2.2",
+    "typescript": "^5.0.0"
   }
 }

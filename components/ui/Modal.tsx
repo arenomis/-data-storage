@@ -1,1 +1,0 @@
-// Deprecated. Modal logic moved to index.html and Toolbar.tsx

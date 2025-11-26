@@ -10,7 +10,7 @@ export class TreeComponent {
     setupEventListeners() {
         this.container.addEventListener('click', (e) => this.handleClick(e));
         this.container.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
-        this.container.addEventListener('mouseover', (e) => this.handleHover(e));
+        // mouseover hover handler removed to avoid tooltip overlaying preview
     }
     handleClick(e) {
         const item = e.target.closest('[data-tree-item]');
@@ -68,36 +68,38 @@ export class TreeComponent {
             }
         }
     }
-    render(folder) {
-        const children = [];
-        // First, render all items (files and folders) in current level
-        for (const f of folder.folders) {
-            children.push(`
-        <div class="tree-item tree-folder" data-tree-item="${f.id}">
-          <button class="tree-toggle">→</button>
-          <span class="tree-type-icon">DIR</span>
-          <span class="tree-name">${this.escapeHtml(f.name)}</span>
-        </div>
-      `);
+        render(folder) {
+                const parts = [];
+
+                // Render folders with their children immediately after each folder item
+                for (const f of folder.folders) {
+                        parts.push(`
+                <div class="tree-item tree-folder" data-tree-item="${f.id}">
+                    <button class="tree-toggle">→</button>
+                    <span class="tree-type-icon">DIR</span>
+                    <span class="tree-name">${this.escapeHtml(f.name)}</span>
+                </div>
+            `);
+
+                        parts.push(`
+                <div class="tree-children" style="display: none;">
+                    ${this.render(f)}
+                </div>
+            `);
+                }
+
+                // Then render files for the current level
+                for (const file of folder.files) {
+                        parts.push(`
+                <div class="tree-item tree-file" data-tree-item="${file.id}">
+                    <span class="tree-type-icon">FILE</span>
+                    <span class="tree-name">${this.escapeHtml(file.name)}</span>
+                </div>
+            `);
+                }
+
+                return parts.join('');
         }
-        for (const file of folder.files) {
-            children.push(`
-        <div class="tree-item tree-file" data-tree-item="${file.id}">
-          <span class="tree-type-icon">FILE</span>
-          <span class="tree-name">${this.escapeHtml(file.name)}</span>
-        </div>
-      `);
-        }
-        // Then render children folders recursively
-        for (const f of folder.folders) {
-            children.push(`
-        <div class="tree-children" style="display: none;">
-          ${this.render(f)}
-        </div>
-      `);
-        }
-        return children.join('');
-    }
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;

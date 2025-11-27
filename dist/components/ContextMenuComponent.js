@@ -25,9 +25,20 @@ export class ContextMenuComponent {
                 this.hide();
             });
         });
-        document.addEventListener('click', () => this.hide());
+        const onDocClick = (e) => {
+            if (!e.target.closest('.context-menu-item') && !e.target.closest('#' + this.container.id)) {
+                this.hide();
+            }
+        };
+        document.addEventListener('click', onDocClick);
+        this.container._docClickHandler = onDocClick;
     }
     hide() {
         this.container.classList.add('hidden');
+        const handler = this.container._docClickHandler;
+        if (handler) {
+            document.removeEventListener('click', handler);
+            delete this.container._docClickHandler;
+        }
     }
 }

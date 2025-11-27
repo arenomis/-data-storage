@@ -45,7 +45,11 @@ class FileStorageApp {
       onFolderClick: (id) => this.selectFolder(id),
       onFileClick: (id) => this.selectFile(id),
       onContextMenu: (id, isFolder, x, y) => this.showContextMenu(id, isFolder, x, y),
-      onHover: (id, isFile, rect) => this.showTooltip(id, isFile, rect)
+      onHover: (id, isFile, rect) => this.showTooltip(id, isFile, rect),
+      onToggleExpand: async (id) => {
+        await this.store.loadChildren(id)
+        this.tree.update(this.store.root)
+      }
     })
 
     this.topBar = new TopBarComponent(topBarContainer, {
@@ -84,10 +88,6 @@ class FileStorageApp {
     modalContainer.id = 'modal-container'
     modalContainer.className = 'modal-container hidden'
     document.body.appendChild(modalContainer)
-
-    const modalBackdrop = document.createElement('div')
-    modalBackdrop.className = 'modal-backdrop hidden'
-    document.body.appendChild(modalBackdrop)
 
     this.modal = new ModalComponent(modalContainer)
   }

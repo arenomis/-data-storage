@@ -37,10 +37,21 @@ export class ContextMenuComponent {
       })
     })
 
-    document.addEventListener('click', () => this.hide())
+    const onDocClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.context-menu-item') && !(e.target as HTMLElement).closest('#' + this.container.id)) {
+        this.hide()
+      }
+    }
+    document.addEventListener('click', onDocClick)
+    ;(this.container as any)._docClickHandler = onDocClick
   }
 
   hide() {
     this.container.classList.add('hidden')
+    const handler = (this.container as any)._docClickHandler
+    if (handler) {
+      document.removeEventListener('click', handler)
+      delete (this.container as any)._docClickHandler
+    }
   }
 }

@@ -1,6 +1,6 @@
 import { FileItem } from '../models/FileItem.js'
 
-// Компонент предпросмотра: поддерживает image/audio/video/pdf/text
+// Компонент предпросмотра: image/audio/video/pdf/text
 export class PreviewComponent {
   private container: HTMLElement
   private onRename: () => void

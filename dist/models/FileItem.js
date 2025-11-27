@@ -10,6 +10,7 @@ export class FileItem {
         this.description = (_d = opts.description) !== null && _d !== void 0 ? _d : 'Нет описания';
         this.createdAt = Date.now();
     }
+    // For persistence: allow setting the next id counter
     static setCounter(next) {
         fileIdCounter = next;
     }

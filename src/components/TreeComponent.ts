@@ -4,6 +4,7 @@ export class TreeComponent {
   private onFileClick: (id: string) => void
   private onContextMenu: (id: string, isFolder: boolean, x: number, y: number) => void
   private onHover: (id: string, isFile: boolean, rect: DOMRect) => void
+  private onToggleExpand?: (id: string) => Promise<void> | void
   private expandedFolders: Set<string> = new Set()
   private selectedItemId: string | null = null
 
@@ -12,12 +13,14 @@ export class TreeComponent {
     onFileClick: (id: string) => void
     onContextMenu: (id: string, isFolder: boolean, x: number, y: number) => void
     onHover: (id: string, isFile: boolean, rect: DOMRect) => void
+    onToggleExpand?: (id: string) => Promise<void> | void
   }) {
     this.container = container
     this.onFolderClick = callbacks.onFolderClick
     this.onFileClick = callbacks.onFileClick
     this.onContextMenu = callbacks.onContextMenu
     this.onHover = callbacks.onHover
+    this.onToggleExpand = callbacks.onToggleExpand
 
     this.setupEventListeners()
   }
@@ -79,20 +82,28 @@ export class TreeComponent {
   private toggleExpand(item: HTMLElement, id: string) {
     const toggle = item.querySelector('.tree-toggle') as HTMLElement
     const children = item.nextElementSibling as HTMLElement | null
-
+    
     if (children?.classList.contains('tree-children')) {
       if (children.style.display === 'none') {
-        children.style.display = 'block'
-        toggle.textContent = '↓'
         this.expandedFolders.add(id)
+        children.style.display = 'block'
+        if (toggle) toggle.textContent = '↓'
+        if (this.onToggleExpand) {
+          try {
+            const res = this.onToggleExpand(id)
+            if (res && typeof (res as any).then === 'function') {
+              ;(res as Promise<void>).catch(() => {})
+            }
+          } catch (e) {
+          }
+        }
       } else {
         children.style.display = 'none'
-        toggle.textContent = '→'
+        if (toggle) toggle.textContent = '→'
         this.expandedFolders.delete(id)
       }
     }
   }
-
   private updateSelection() {
     this.container.querySelectorAll('.tree-item').forEach(el => {
       el.classList.remove('tree-active')
@@ -108,7 +119,6 @@ export class TreeComponent {
   render(folder: any): string {
     const parts: string[] = []
 
-    // Render folders with their children immediately after each folder item
     for (const f of folder.folders) {
       parts.push(`
         <div class="tree-item tree-folder" data-tree-item="${f.id}">
@@ -125,7 +135,6 @@ export class TreeComponent {
       `)
     }
 
-    // Then render files for the current level
     for (const file of folder.files) {
       parts.push(`
         <div class="tree-item tree-file" data-tree-item="${file.id}">
@@ -170,7 +179,6 @@ export class TreeComponent {
   }
 
   expandToItem(itemId: string, store: any) {
-    // Expand folders along the path to the given item
     const pathToRoot: string[] = []
     let folderId = itemId
     const fileRes = store.findFileById(itemId)

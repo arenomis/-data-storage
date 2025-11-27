@@ -7,6 +7,7 @@ export class TreeComponent {
         this.onFileClick = callbacks.onFileClick;
         this.onContextMenu = callbacks.onContextMenu;
         this.onHover = callbacks.onHover;
+        this.onToggleExpand = callbacks.onToggleExpand;
         this.setupEventListeners();
     }
     setupEventListeners() {
@@ -63,13 +64,26 @@ export class TreeComponent {
         const children = item.nextElementSibling;
         if (children === null || children === void 0 ? void 0 : children.classList.contains('tree-children')) {
             if (children.style.display === 'none') {
-                children.style.display = 'block';
-                toggle.textContent = '↓';
                 this.expandedFolders.add(id);
+                children.style.display = 'block';
+                if (toggle)
+                    toggle.textContent = '↓';
+                if (this.onToggleExpand) {
+                    try {
+                        const res = this.onToggleExpand(id);
+                        if (res && typeof res.then === 'function') {
+                            ;
+                            res.catch(() => { });
+                        }
+                    }
+                    catch (e) {
+                    }
+                }
             }
             else {
                 children.style.display = 'none';
-                toggle.textContent = '→';
+                if (toggle)
+                    toggle.textContent = '→';
                 this.expandedFolders.delete(id);
             }
         }
@@ -87,7 +101,6 @@ export class TreeComponent {
     }
     render(folder) {
         const parts = [];
-        // Render folders with their children immediately after each folder item
         for (const f of folder.folders) {
             parts.push(`
         <div class="tree-item tree-folder" data-tree-item="${f.id}">
@@ -102,7 +115,6 @@ export class TreeComponent {
         </div>
       `);
         }
-        // Then render files for the current level
         for (const file of folder.files) {
             parts.push(`
         <div class="tree-item tree-file" data-tree-item="${file.id}">
@@ -141,7 +153,6 @@ export class TreeComponent {
         this.updateSelection();
     }
     expandToItem(itemId, store) {
-        // Expand folders along the path to the given item
         const pathToRoot = [];
         let folderId = itemId;
         const fileRes = store.findFileById(itemId);

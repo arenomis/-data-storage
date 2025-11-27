@@ -1,7 +1,5 @@
 import { FolderItem } from '../models/FolderItem.js';
 import { FileItem } from '../models/FileItem.js';
-import { FolderItem as FolderItemClass } from '../models/FolderItem.js';
-import { FileItem as FileItemClass } from '../models/FileItem.js';
 // Хранилище данных: папки, файлы и простая персистенция в localStorage
 export class DataStore {
     constructor() {
@@ -17,7 +15,7 @@ export class DataStore {
             name: 'readme.txt',
             type: 'text/plain',
             size: 156,
-            content: 'Это демонстрационный файл readme.txt\nВы можете его редактировать, переименовывать и удалять.',
+            content: 'Это демонстрационный файл readme.txt\nВы можете его переименовывать и удалять.',
             description: 'Основной файл документации'
         }), new FileItem({
             name: 'todo.txt',
@@ -175,8 +173,8 @@ export class DataStore {
             const parsed = JSON.parse(raw);
             const { root, maxFileId, maxFolderId } = this.reconstructFromObject(parsed);
             this.root = root;
-            FileItemClass.setCounter(maxFileId + 1);
-            FolderItemClass.setCounter(maxFolderId + 1);
+            FileItem.setCounter(maxFileId + 1);
+            FolderItem.setCounter(maxFolderId + 1);
             return true;
         }
         catch (e) {

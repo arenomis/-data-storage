@@ -3,6 +3,8 @@ export class ModalComponent {
         this.container = container;
         this.backdrop = document.createElement('div');
         this.backdrop.className = 'modal-backdrop hidden';
+        if (!document.body.contains(this.backdrop))
+            document.body.appendChild(this.backdrop);
     }
     prompt(title, defaultValue = '') {
         return new Promise(resolve => {
